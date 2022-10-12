@@ -2,6 +2,11 @@ const prompt = require('prompt-sync')({sigint: true});
 
 
 
+/**
+ * It takes a string and returns a string
+ * @param move - The move that the player wants to make.
+ * @returns The value of the key in the object.
+ */
 function prettymove(move) {
 	const pmove = {"SCIE": "Construire une scierie", "MINEP": "Construire une mine de pierre" ,"MINEO": "Construire une mine d'or" ,"REPARER": "Reparer un batiment" ,"RIEN": "Ne rien faire ..."};
 	return pmove[move];
@@ -17,13 +22,14 @@ class Village
 		this.batiments = batiments;
 		this.turn = 0;
 	}
-	// construiremine() une mine coutera 100 pierre a construire et
-	// ajoutera un batiment (MINEP)
 
 	is_alive()
 	{
 		return this.getHDV().hp > 0
 	}
+
+	// construiremine() une mine coutera 100 pierre a construire et
+	// ajoutera un batiment (MINEP)
 	construiremine()
 	{
 		// couter 100 pierre
@@ -46,9 +52,6 @@ class Village
 	// ajoutera un batiment (SCIE)
 	construirescierie()
 	{
-		console.log("gate 2");
-		console.log("this.nbbois >= 100 : ",this.nbbois >= 100);
-		console.log("this.nbbois : ",this.nbbois);
 		if(this.nbbois >= 100)
 		{
 			this.nbbois = this.nbbois - 100;
@@ -91,43 +94,30 @@ class Village
 		}
 	}
 
-	afficher()
-	{
 
-		console.log("------DISPLAY-------");
-		console.log("Tour : " + this.turn);
-		// console.log("Villageois : " + this.nbvillageois);
-		console.log("Bois : " + this.nbbois);
-		console.log("Pierre : " + this.nbpierre);
-		console.log("Or : " + this.nbor);
-		console.log("Batiments : " + this.batiments.length);
-		console.log("Details des batiments : ");
-		for (const bat of this.batiments) {
-			bat.afficher();
-		}
-		console.log("--------------------");
-	}
 
 	recolterressource(batiment)
 	{
 		const prod = batiment.produire()
-			switch (batiment.type) {
 
-				case "MINEP":
-					this.nbpierre += prod;
-					break;
+		switch (prod.type) {
 
-				case "MINEO":
-					this.nbor += prod;
-					break;
+			case "MINEP":
+				this.nbpierre += prod.uniteproduite;
+				break;
 
-				case "SCIE":
-					this.nbbois += prod;
-					break;
+			case "MINEO":
+				this.nbor += prod.uniteproduite;
+				break;
 
-				default:
-					break;
-			}
+			case "SCIE":
+				this.nbbois += prod.uniteproduite;
+				break;
+
+			default:
+				break;
+		}
+
 	}
 
 	toutrecolter()
@@ -161,36 +151,60 @@ class Village
 	}
 
 
+	/**
+	 * The function processreparation() is supposed to display a list of buildings that can be repaired,
+	 * then ask the user to choose one of them and then ask the user to enter a budget for the repair, and
+	 * then call the function restaurer_hp() on the chosen building.
+	 */
 	processreparation () {
+
 		console.log("Vous pouvez reparer les batiments suivant : ");
-		let batimentreparable = this.batiments.filter((bat)=>{return this.nbor >= bat.repare_cost})
+		let batimentsreparable = this.batiments.filter((bat)=>{return this.nbor >= bat.repare_cost})
 
-		for (const b of batimentreparable) {
-			console.log(`[${batimentreparable.indexOf(b)}] : ${b.type } : ${b.hp}`);
+		for (const b of batimentsreparable) {
+			console.log(`[${batimentsreparable.indexOf(b)}] : ${b.type } : ${b.hp}`);
 		}
-		const choix = prompt("Quel batiment voulez vous reparer ?")
-		const or = prompt("Quel est votre budget reparation ?")
-
-		batimentreparable[choix].restaurer_hp(or)
-
+		// verifier choix
+		let choix = prompt("Quel batiment voulez vous reparer ? : ")
+		while (!(choix >= 0 && choix <= batimentsreparable.length))
+		{
+			choix = prompt("(Vous avez choisi une action impossible)\nQuel batiment voulez vous reparer ? : ");
+		}
+		// verifier or
+		let or = prompt("Quel est votre budget reparation ?")
+		// boucle
+		while (!(or >= 0 && or <= this.nbor))
+		{
+			or = prompt("(Vous avez choisi un montant errone)\nQuel est votre budget reparation ? : ");
+		}
+		let resultat = batimentsreparable[choix].restaurer_hp(or)
+		// le batiment a deja ete reparer
+		this.nbor -= resultat.coutor
+		console.log(`Vous avez restaure ${resultat.hprestaurer}HP au batiment : ${batimentsreparable[choix].type } , HP : ${batimentsreparable[choix].hp} , pour un cout de ${resultat.coutor}`);
 	}
 
 	jouertour()
 	{
 		this.turn++;
+
 		this.toutrecolter();
 		this.afficher();
 
 		// on calcule les possibilités d'action
 		const possibilites = this.possibilitesduprochaintour()
+
+
 		console.log("Voici vos possibiliter :")
 		for (const pos of possibilites) {
 			console.log(`[${possibilites.indexOf(pos)}] : ${prettymove(pos)}`);
 		}
 
-		const choix = prompt("Que voulez vous faire ? : ");
 
-		console.log(possibilites[choix] in ["SCIE","MINEP","MINEO"]);
+		let choix = prompt("Que voulez vous faire ? : ");
+		while (!(choix >= 0 && choix <= possibilites.length))
+		{
+			choix = prompt("(Vous avez choisi une action impossible)\nQue voulez vous faire ? : ");
+		}
 		if(["SCIE","MINEP","MINEO"].includes(possibilites[choix]))
 		{
 			this.createBatiment(possibilites[choix])
@@ -206,6 +220,22 @@ class Village
 
 	getHDV(){
 		return this.batiments.find((bat) => {return bat.type === "HDV"})
+	}
+
+	afficher()
+	{
+		console.log("------DISPLAY-------");
+		console.log("Tour : " + this.turn);
+		// console.log("Villageois : " + this.nbvillageois);
+		console.log("Bois : " + this.nbbois);
+		console.log("Pierre : " + this.nbpierre);
+		console.log("Or : " + this.nbor);
+		console.log("Batiments : " + this.batiments.length);
+		console.log("Details des batiments : ");
+		for (const batiment of this.batiments) {
+			batiment.afficher();
+		}
+		console.log("--------------------");
 	}
 }
 
@@ -226,12 +256,12 @@ class Batiment
 
 		this.hp = this.hp + hprestaurer;
 
-		return {hprestaurer : hprestaurer, coutor : montantor - (this.repare_cost * hprestaurer)};
+		return {hprestaurer : hprestaurer, coutor : this.repare_cost * hprestaurer};
 	}
 
 	produire()
 	{
-		return this.production;
+		return {type : this.type, uniteproduite: this.production};
 	}
 
 
@@ -245,6 +275,10 @@ class Batiment
 
 let myvillage = new Village()
 
-while (myvillage.is_alive()) {
+while (myvillage.is_alive())
+{
 	myvillage.jouertour()
 }
+
+
+
